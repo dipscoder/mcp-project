@@ -6,6 +6,8 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import JSONResponse
 from fastmcp.server.auth import BearerAuthProvider
 from fastmcp.server.dependencies import get_access_token, AccessToken
+from database import NoteRepository
+from jose import jwt
 import os
 
 load_dotenv()
@@ -20,19 +22,34 @@ mcp = FastMCP(name="Personal Notes MCP", auth=auth)
 
 
 @mcp.tool()
-def get_my_notes(_ctx) -> str:
+def get_my_notes() -> str:
     """
     Get All the notes for a user
     """
-    return "No Notes"
+    access_token: AccessToken = get_access_token()
+    user_id = jwt.get_unverified_claims(access_token.token)["sub"]
+
+    notes = NoteRepository.get_notes_by_user(user_id=user_id)
+    if not notes:
+        return "No Notes"
+
+    result = "Your Notes:\n"
+    for note in notes:
+        result += f"{note.id}: {note.content}\n"
+
+    return result
 
 
 @mcp.tool()
-def add_notes(_ctx, content: str) -> str:
+def add_notes(content: str) -> str:
     """
     Add a note for a user
     """
-    return f"added note: {content}"
+    access_token: AccessToken = get_access_token()
+    user_id = jwt.get_unverified_claims(access_token.token)["sub"]
+
+    note = NoteRepository.create_note(user_id=user_id, content=content)
+    return f"added note: {note.content}"
 
 
 @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET", "OPTIONS"])
