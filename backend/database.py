@@ -4,9 +4,10 @@ from sqlalchemy.orm import sessionmaker
 from typing import List
 
 
-engine = create_engine('sqlite:///database.db')
+engine = create_engine("sqlite:///database.db")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 class Note(Base):
     __tablename__ = "notes"
@@ -18,6 +19,7 @@ class Note(Base):
 
 Base.metadata.create_all(bind=engine)
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -27,7 +29,6 @@ def get_db():
 
 
 class NoteRepository:
-
     @staticmethod
     def get_notes_by_user(user_id: str) -> List[Note]:
         db = SessionLocal()

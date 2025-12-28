@@ -1,14 +1,15 @@
-from fastmcp import FastMCP
+import os
+
+from database import NoteRepository
 from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
+from fastmcp import FastMCP
+from fastmcp.server.auth import BearerAuthProvider
+from fastmcp.server.dependencies import AccessToken, get_access_token
+from jose import jwt
 from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import JSONResponse
-from fastmcp.server.auth import BearerAuthProvider
-from fastmcp.server.dependencies import get_access_token, AccessToken
-from database import NoteRepository
-from jose import jwt
-import os
 
 load_dotenv()
 
@@ -60,7 +61,7 @@ def oauth_metadata(request: StarletteRequest) -> JSONResponse:
         {
             "resource": base_url,
             "authorization_servers": [os.getenv("STYTCH_DOMAIN")],
-            "scopes_supported": ["read", "write"],
+            "scopes_supported": ["openid", "profile", "email"],
             "bearer_methods_supported": ["header", "body"],
         }
     )
