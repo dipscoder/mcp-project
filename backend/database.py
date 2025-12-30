@@ -48,3 +48,49 @@ class NoteRepository:
             return note
         finally:
             db.close()
+
+    @staticmethod
+    def get_note_by_id(note_id: int, user_id: str) -> Note | None:
+        db = SessionLocal()
+        try:
+            return (
+                db.query(Note)
+                .filter(Note.id == note_id, Note.user_id == user_id)
+                .first()
+            )
+        finally:
+            db.close()
+
+    @staticmethod
+    def update_note(note_id: int, user_id: str, content: str) -> Note | None:
+        db = SessionLocal()
+        try:
+            note = (
+                db.query(Note)
+                .filter(Note.id == note_id, Note.user_id == user_id)
+                .first()
+            )
+            if note:
+                note.content = content
+                db.commit()
+                db.refresh(note)
+            return note
+        finally:
+            db.close()
+
+    @staticmethod
+    def delete_note(note_id: int, user_id: str) -> bool:
+        db = SessionLocal()
+        try:
+            note = (
+                db.query(Note)
+                .filter(Note.id == note_id, Note.user_id == user_id)
+                .first()
+            )
+            if note:
+                db.delete(note)
+                db.commit()
+                return True
+            return False
+        finally:
+            db.close()

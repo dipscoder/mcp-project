@@ -5,7 +5,17 @@ import {
   useStytchUser,
 } from "@stytch/react";
 import { useEffect, useState } from "react";
-import { FiCheck, FiFileText, FiLock, FiMail, FiShield } from "react-icons/fi";
+import {
+  FiCheck,
+  FiEdit2,
+  FiFileText,
+  FiLock,
+  FiMail,
+  FiPlus,
+  FiShield,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 import {
   Link,
   Navigate,
@@ -14,6 +24,9 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+
+// Backend API URL
+const BACKEND_URL = "http://localhost:8000";
 
 // Stytch configuration
 const stytchConfig = {
@@ -503,40 +516,151 @@ function SignupPage() {
   );
 }
 
-// Dashboard
+// Dashboard with Notes Management
 function Dashboard() {
   const { user } = useStytchUser();
   const stytch = useStytch();
+
+  // Notes state
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Form state
+  const [newNote, setNewNote] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Get session token for API calls
+  const getSessionToken = () => {
+    const tokens = stytch.session.getTokens();
+    return tokens?.session_token;
+  };
+
+  // Fetch notes
+  const fetchNotes = async () => {
+    const token = getSessionToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/notes`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setNotes(data.notes || []);
+        setError("");
+      } else {
+        setError(data.error || "Failed to fetch notes");
+      }
+    } catch {
+      setError("Failed to connect to server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotes();
+  }, []);
+
+  // Create note
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/notes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getSessionToken()}`,
+        },
+        body: JSON.stringify({ content: newNote.trim() }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setNotes([data.note, ...notes]);
+        setNewNote("");
+        setError("");
+      } else {
+        setError(data.error || "Failed to create note");
+      }
+    } catch {
+      setError("Failed to create note");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Update note
+  const handleUpdate = async (id) => {
+    if (!editContent.trim()) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/notes/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getSessionToken()}`,
+        },
+        body: JSON.stringify({ content: editContent.trim() }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setNotes(notes.map((n) => (n.id === id ? data.note : n)));
+        setEditingId(null);
+        setEditContent("");
+        setError("");
+      } else {
+        setError(data.error || "Failed to update note");
+      }
+    } catch {
+      setError("Failed to update note");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete note
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this note?")) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/notes/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getSessionToken()}` },
+      });
+      if (response.ok) {
+        setNotes(notes.filter((n) => n.id !== id));
+        setError("");
+      } else {
+        const data = await response.json();
+        setError(data.error || "Failed to delete note");
+      }
+    } catch {
+      setError("Failed to delete note");
+    }
+  };
 
   const handleLogout = async () => {
     await stytch.session.revoke();
   };
 
-  const getInitials = () => {
-    if (user?.name?.first_name && user?.name?.last_name) {
-      return `${user.name.first_name[0]}${user.name.last_name[0]}`.toUpperCase();
-    }
-    if (user?.emails?.[0]?.email) {
-      return user.emails[0].email[0].toUpperCase();
-    }
-    return "U";
-  };
-
   const getDisplayName = () => {
     if (user?.name?.first_name) {
-      return `${user.name.first_name}${
-        user.name.last_name ? ` ${user.name.last_name}` : ""
-      }`;
+      return `${user.name.first_name}${user.name.last_name ? ` ${user.name.last_name}` : ""}`;
     }
-    return user?.emails?.[0]?.email || "User";
+    return user?.emails?.[0]?.email?.split("@")[0] || "User";
   };
-
-  const getEmail = () => user?.emails?.[0]?.email || "";
 
   return (
     <div className="min-h-screen bg-zinc-50">
       <header className="bg-white border-b border-zinc-200">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-zinc-900 rounded-lg flex items-center justify-center text-white">
               <FiFileText size={20} />
@@ -545,38 +669,133 @@ function Dashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors bg-transparent shadow-none"
+            className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
           >
             Sign out
           </button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl border border-zinc-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-1">
-            Welcome, {getDisplayName()}!
-          </h2>
-          <p className="text-sm text-zinc-500">
-            Your personal notes dashboard is ready.
+      <main className="max-w-3xl mx-auto px-4 py-6">
+        {/* Welcome */}
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-zinc-900">
+            Welcome, {getDisplayName()}
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            Manage your notes for AI agents
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-zinc-200 p-6">
-          <div className="flex items-center gap-4 pb-4 border-b border-zinc-100 mb-4">
-            <div className="w-14 h-14 bg-zinc-900 rounded-full flex items-center justify-center text-white text-lg font-semibold">
-              {getInitials()}
-            </div>
-            <div>
-              <h3 className="font-semibold text-zinc-900">
-                {getDisplayName()}
-              </h3>
-              <p className="text-sm text-zinc-500">{getEmail()}</p>
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError("")} className="text-red-400 hover:text-red-600">
+              <FiX size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Create note form */}
+        <form onSubmit={handleCreate} className="mb-6">
+          <div className="bg-white rounded-xl border border-zinc-200 p-4">
+            <textarea
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Write a new note..."
+              rows={3}
+              className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+              disabled={saving}
+            />
+            <div className="flex justify-end mt-3">
+              <button
+                type="submit"
+                disabled={!newNote.trim() || saving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiPlus size={16} />
+                {saving ? "Adding..." : "Add Note"}
+              </button>
             </div>
           </div>
-          <p className="text-sm text-zinc-600">
-            You are authenticated and can access your personal notes securely.
-          </p>
+        </form>
+
+        {/* Notes list */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="text-center py-12 text-zinc-500">Loading notes...</div>
+          ) : notes.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-zinc-200">
+              <FiFileText size={32} className="mx-auto text-zinc-300 mb-3" />
+              <p className="text-zinc-500 text-sm">No notes yet</p>
+              <p className="text-zinc-400 text-xs mt-1">Create your first note above</p>
+            </div>
+          ) : (
+            notes.map((note) => (
+              <div
+                key={note.id}
+                className="bg-white rounded-xl border border-zinc-200 p-4"
+              >
+                {editingId === note.id ? (
+                  <div>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                      disabled={saving}
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 mt-3">
+                      <button
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditContent("");
+                        }}
+                        className="px-3 py-1.5 text-sm text-zinc-600 hover:text-zinc-900"
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleUpdate(note.id)}
+                        disabled={!editContent.trim() || saving}
+                        className="px-3 py-1.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 disabled:opacity-50"
+                      >
+                        {saving ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">
+                      {note.content}
+                    </p>
+                    <div className="flex justify-end gap-1 mt-3 pt-3 border-t border-zinc-100">
+                      <button
+                        onClick={() => {
+                          setEditingId(note.id);
+                          setEditContent(note.content);
+                        }}
+                        className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 rounded-lg transition-colors"
+                        title="Edit"
+                      >
+                        <FiEdit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(note.id)}
+                        className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </main>
     </div>
