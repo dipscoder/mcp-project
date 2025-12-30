@@ -1,12 +1,16 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
+from datetime import datetime, timezone
 from typing import List
 
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 engine = create_engine("sqlite:///database.db")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
 
 
 class Note(Base):
@@ -15,6 +19,8 @@ class Note(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, nullable=False, index=True)
     content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
 
 Base.metadata.create_all(bind=engine)
@@ -72,6 +78,7 @@ class NoteRepository:
             )
             if note:
                 note.content = content
+                note.updated_at = utc_now()
                 db.commit()
                 db.refresh(note)
             return note

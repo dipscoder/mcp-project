@@ -54,6 +54,16 @@ auth = BearerAuthProvider(
 mcp = FastMCP(name="Personal Notes MCP", auth=auth)
 
 
+def serialize_note(note):
+    """Convert note to JSON-serializable dict with timestamps."""
+    return {
+        "id": note.id,
+        "content": note.content,
+        "created_at": f"{note.created_at.isoformat()}Z" if note.created_at else None,
+        "updated_at": f"{note.updated_at.isoformat()}Z" if note.updated_at else None,
+    }
+
+
 @mcp.tool()
 def get_my_notes() -> str:
     """
@@ -111,7 +121,7 @@ async def list_notes(request: StarletteRequest) -> JSONResponse:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     notes = NoteRepository.get_notes_by_user(user_id=user_id)
-    return JSONResponse({"notes": [{"id": n.id, "content": n.content} for n in notes]})
+    return JSONResponse({"notes": [serialize_note(n) for n in notes]})
 
 
 @mcp.custom_route("/api/notes", methods=["POST"])
@@ -134,9 +144,7 @@ async def create_note(request: StarletteRequest) -> JSONResponse:
             )
 
         note = NoteRepository.create_note(user_id=user_id, content=content)
-        return JSONResponse(
-            {"note": {"id": note.id, "content": note.content}}, status_code=201
-        )
+        return JSONResponse({"note": serialize_note(note)}, status_code=201)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -170,7 +178,7 @@ async def update_note(request: StarletteRequest) -> JSONResponse:
         if not note:
             return JSONResponse({"error": "Note not found"}, status_code=404)
 
-        return JSONResponse({"note": {"id": note.id, "content": note.content}})
+        return JSONResponse({"note": serialize_note(note)})
     except ValueError:
         return JSONResponse({"error": "Invalid note ID"}, status_code=400)
     except Exception as e:
