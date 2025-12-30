@@ -1,7 +1,7 @@
 import os
 
 import httpx
-from database import NoteRepository
+from database import MemoryRepository
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth import BearerAuthProvider
@@ -51,48 +51,89 @@ auth = BearerAuthProvider(
     algorithm="RS256",
     audience=os.getenv("STYTCH_PROJECT_ID"),
 )
-mcp = FastMCP(name="Personal Notes MCP", auth=auth)
+mcp = FastMCP(name="AI Memory Hub", auth=auth)
 
 
-def serialize_note(note):
-    """Convert note to JSON-serializable dict with timestamps."""
+def serialize_memory(memory):
+    """Convert memory to JSON-serializable dict with timestamps."""
     return {
-        "id": note.id,
-        "content": note.content,
-        "created_at": f"{note.created_at.isoformat()}Z" if note.created_at else None,
-        "updated_at": f"{note.updated_at.isoformat()}Z" if note.updated_at else None,
+        "id": memory.id,
+        "short_id": memory.short_id,
+        "content": memory.content,
+        "created_at": f"{memory.created_at.isoformat()}Z" if memory.created_at else None,
+        "updated_at": f"{memory.updated_at.isoformat()}Z" if memory.updated_at else None,
     }
 
 
 @mcp.tool()
-def get_my_notes() -> str:
+def get_my_memories() -> str:
     """
-    Get All the notes for a user
+    Retrieve all stored memories for the authenticated user.
+
+    Use this tool to access the user's personal context, preferences, and notes
+    that they have saved for AI assistants. This helps you understand the user's
+    background, preferences, and ongoing projects.
+
+    Returns a formatted list of all memories with their unique IDs for reference.
     """
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
 
-    notes = NoteRepository.get_notes_by_user(user_id=user_id)
-    if not notes:
-        return "No Notes"
+    memories = MemoryRepository.get_memories_by_user(user_id=user_id)
+    if not memories:
+        return "No memories stored yet. The user hasn't saved any context or preferences."
 
-    result = "Your Notes:\n"
-    for note in notes:
-        result += f"{note.id}: {note.content}\n"
+    result = "User's Stored Memories:\n\n"
+    for memory in memories:
+        result += f"[{memory.short_id}] {memory.content}\n\n"
 
     return result
 
 
 @mcp.tool()
-def add_notes(content: str) -> str:
+def get_memory_by_id(memory_id: str) -> str:
     """
-    Add a note for a user
+    Fetch a specific memory by its unique short ID.
+
+    Use this tool when the user references a specific memory ID (e.g., "refer to memory abc123")
+    or when you need to retrieve detailed information about a particular stored context.
+
+    Args:
+        memory_id: The 6-character unique ID of the memory (e.g., "x7k2m9")
+
+    Returns the memory content if found, or an error message if not found.
     """
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
 
-    note = NoteRepository.create_note(user_id=user_id, content=content)
-    return f"added note: {note.content}"
+    memory = MemoryRepository.get_memory_by_short_id(short_id=memory_id, user_id=user_id)
+    if not memory:
+        return f"Memory with ID '{memory_id}' not found. Please check the ID and try again."
+
+    return f"[{memory.short_id}] {memory.content}"
+
+
+@mcp.tool()
+def add_memory(content: str) -> str:
+    """
+    Store a new memory for the user for future reference by AI assistants.
+
+    Use this tool to save important context about the user, such as:
+    - Personal preferences (coding style, preferred tools, languages)
+    - Project details (tech stack, architecture decisions)
+    - Work context (current tasks, team info)
+    - Any information the user wants AI assistants to remember
+
+    Args:
+        content: The memory content to store. Be descriptive and specific.
+
+    Returns confirmation with the assigned memory ID for future reference.
+    """
+    access_token: AccessToken = get_access_token()
+    user_id = jwt.get_unverified_claims(access_token.token)["sub"]
+
+    memory = MemoryRepository.create_memory(user_id=user_id, content=content)
+    return f"Memory saved with ID [{memory.short_id}]: {memory.content}"
 
 
 @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET", "OPTIONS"])
@@ -109,10 +150,10 @@ def oauth_metadata(request: StarletteRequest) -> JSONResponse:
     )
 
 
-# REST API endpoints for Notes CRUD
-@mcp.custom_route("/api/notes", methods=["GET", "OPTIONS"])
-async def list_notes(request: StarletteRequest) -> JSONResponse:
-    """Get all notes for the authenticated user."""
+# REST API endpoints for Memories CRUD
+@mcp.custom_route("/api/memories", methods=["GET", "OPTIONS"])
+async def list_memories(request: StarletteRequest) -> JSONResponse:
+    """Get all memories for the authenticated user."""
     if request.method == "OPTIONS":
         return JSONResponse({"status": "ok"})
 
@@ -120,13 +161,13 @@ async def list_notes(request: StarletteRequest) -> JSONResponse:
     if not user_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    notes = NoteRepository.get_notes_by_user(user_id=user_id)
-    return JSONResponse({"notes": [serialize_note(n) for n in notes]})
+    memories = MemoryRepository.get_memories_by_user(user_id=user_id)
+    return JSONResponse({"memories": [serialize_memory(m) for m in memories]})
 
 
-@mcp.custom_route("/api/notes", methods=["POST"])
-async def create_note(request: StarletteRequest) -> JSONResponse:
-    """Create a new note."""
+@mcp.custom_route("/api/memories", methods=["POST"])
+async def create_memory(request: StarletteRequest) -> JSONResponse:
+    """Create a new memory."""
     user_id = await get_user_from_session(request)
     if not user_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -143,15 +184,15 @@ async def create_note(request: StarletteRequest) -> JSONResponse:
                 {"error": "Content too long (max 10000 characters)"}, status_code=400
             )
 
-        note = NoteRepository.create_note(user_id=user_id, content=content)
-        return JSONResponse({"note": serialize_note(note)}, status_code=201)
+        memory = MemoryRepository.create_memory(user_id=user_id, content=content)
+        return JSONResponse({"memory": serialize_memory(memory)}, status_code=201)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@mcp.custom_route("/api/notes/{note_id}", methods=["PUT", "OPTIONS"])
-async def update_note(request: StarletteRequest) -> JSONResponse:
-    """Update an existing note."""
+@mcp.custom_route("/api/memories/{memory_id}", methods=["PUT", "OPTIONS"])
+async def update_memory(request: StarletteRequest) -> JSONResponse:
+    """Update an existing memory."""
     if request.method == "OPTIONS":
         return JSONResponse({"status": "ok"})
 
@@ -160,7 +201,7 @@ async def update_note(request: StarletteRequest) -> JSONResponse:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     try:
-        note_id = int(request.path_params.get("note_id"))
+        memory_id = int(request.path_params.get("memory_id"))
         body = await request.json()
         content = body.get("content", "").strip()
 
@@ -172,36 +213,36 @@ async def update_note(request: StarletteRequest) -> JSONResponse:
                 {"error": "Content too long (max 10000 characters)"}, status_code=400
             )
 
-        note = NoteRepository.update_note(
-            note_id=note_id, user_id=user_id, content=content
+        memory = MemoryRepository.update_memory(
+            memory_id=memory_id, user_id=user_id, content=content
         )
-        if not note:
-            return JSONResponse({"error": "Note not found"}, status_code=404)
+        if not memory:
+            return JSONResponse({"error": "Memory not found"}, status_code=404)
 
-        return JSONResponse({"note": serialize_note(note)})
+        return JSONResponse({"memory": serialize_memory(memory)})
     except ValueError:
-        return JSONResponse({"error": "Invalid note ID"}, status_code=400)
+        return JSONResponse({"error": "Invalid memory ID"}, status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@mcp.custom_route("/api/notes/{note_id}", methods=["DELETE"])
-async def delete_note(request: StarletteRequest) -> JSONResponse:
-    """Delete a note."""
+@mcp.custom_route("/api/memories/{memory_id}", methods=["DELETE"])
+async def delete_memory(request: StarletteRequest) -> JSONResponse:
+    """Delete a memory."""
     user_id = await get_user_from_session(request)
     if not user_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     try:
-        note_id = int(request.path_params.get("note_id"))
-        deleted = NoteRepository.delete_note(note_id=note_id, user_id=user_id)
+        memory_id = int(request.path_params.get("memory_id"))
+        deleted = MemoryRepository.delete_memory(memory_id=memory_id, user_id=user_id)
 
         if not deleted:
-            return JSONResponse({"error": "Note not found"}, status_code=404)
+            return JSONResponse({"error": "Memory not found"}, status_code=404)
 
-        return JSONResponse({"message": "Note deleted"})
+        return JSONResponse({"message": "Memory deleted"})
     except ValueError:
-        return JSONResponse({"error": "Invalid note ID"}, status_code=400)
+        return JSONResponse({"error": "Invalid memory ID"}, status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiCopy, FiCheck, FiEdit2, FiTrash2 } from "react-icons/fi";
 import { Spinner } from "../ui";
 
 function formatDate(dateString) {
@@ -37,8 +37,8 @@ function formatDate(dateString) {
   });
 }
 
-export default function NoteCard({
-  note,
+export default function MemoryCard({
+  memory,
   onEdit,
   onDelete,
   isEditing,
@@ -48,6 +48,26 @@ export default function NoteCard({
   onCancel,
   saving,
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(memory.short_id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = memory.short_id;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   if (isEditing) {
     return (
       <div className="bg-white rounded-xl border border-zinc-200 p-4">
@@ -87,35 +107,58 @@ export default function NoteCard({
   }
 
   const wasEdited =
-    note.updated_at &&
-    note.created_at &&
-    new Date(note.updated_at) > new Date(note.created_at);
+    memory.updated_at &&
+    memory.created_at &&
+    new Date(memory.updated_at) > new Date(memory.created_at);
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 p-4 group">
+      {/* Short ID badge */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={copyId}
+          className="inline-flex items-center gap-1.5 px-2 py-1 bg-zinc-100 hover:bg-zinc-200 rounded-md text-xs font-mono text-zinc-600 transition-colors cursor-pointer"
+          title="Click to copy ID"
+        >
+          {copied ? (
+            <>
+              <FiCheck size={12} className="text-green-600" />
+              <span className="text-green-600">Copied!</span>
+            </>
+          ) : (
+            <>
+              <FiCopy size={12} />
+              <span>{memory.short_id}</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Content */}
       <p className="text-sm text-zinc-700 whitespace-pre-wrap">
-        {note.content}
+        {memory.content}
       </p>
 
+      {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100">
         <div className="text-xs text-zinc-400">
           {wasEdited ? (
-            <span>Edited {formatDate(note.updated_at)}</span>
+            <span>Edited {formatDate(memory.updated_at)}</span>
           ) : (
-            <span>{formatDate(note.created_at)}</span>
+            <span>{formatDate(memory.created_at)}</span>
           )}
         </div>
 
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={() => onEdit(note)}
+            onClick={() => onEdit(memory)}
             className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 rounded-lg transition-colors cursor-pointer"
             title="Edit"
           >
             <FiEdit2 size={16} />
           </button>
           <button
-            onClick={() => onDelete(note)}
+            onClick={() => onDelete(memory)}
             className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
             title="Delete"
           >

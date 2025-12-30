@@ -1,3 +1,3 @@
 export { default as Dashboard } from "./Dashboard";
-export { default as NoteCard } from "./NoteCard";
-export { default as NoteForm } from "./NoteForm";
+export { default as MemoryCard } from "./MemoryCard";
+export { default as MemoryForm } from "./MemoryForm";

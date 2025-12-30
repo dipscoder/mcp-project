@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import datetime, timezone
 from typing import List
 
@@ -8,15 +10,25 @@ engine = create_engine("sqlite:///database.db")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# Characters for short ID generation (alphanumeric, no ambiguous chars)
+SHORT_ID_CHARS = string.ascii_lowercase + string.digits
+SHORT_ID_LENGTH = 6
+
 
 def utc_now():
     return datetime.now(timezone.utc)
 
 
-class Note(Base):
-    __tablename__ = "notes"
+def generate_short_id():
+    """Generate a short unique ID like 'x7k2m9'."""
+    return "".join(secrets.choice(SHORT_ID_CHARS) for _ in range(SHORT_ID_LENGTH))
+
+
+class Memory(Base):
+    __tablename__ = "memories"
 
     id = Column(Integer, primary_key=True, index=True)
+    short_id = Column(String(10), unique=True, index=True, nullable=False)
     user_id = Column(String, nullable=False, index=True)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -34,68 +46,90 @@ def get_db():
         db.close()
 
 
-class NoteRepository:
+class MemoryRepository:
     @staticmethod
-    def get_notes_by_user(user_id: str) -> List[Note]:
-        db = SessionLocal()
-        try:
-            return db.query(Note).filter(Note.user_id == user_id).all()
-        finally:
-            db.close()
-
-    @staticmethod
-    def create_note(user_id: str, content: str) -> Note:
-        db = SessionLocal()
-        try:
-            note = Note(user_id=user_id, content=content)
-            db.add(note)
-            db.commit()
-            db.refresh(note)
-            return note
-        finally:
-            db.close()
-
-    @staticmethod
-    def get_note_by_id(note_id: int, user_id: str) -> Note | None:
+    def get_memories_by_user(user_id: str) -> List[Memory]:
         db = SessionLocal()
         try:
             return (
-                db.query(Note)
-                .filter(Note.id == note_id, Note.user_id == user_id)
+                db.query(Memory)
+                .filter(Memory.user_id == user_id)
+                .order_by(Memory.created_at.desc())
+                .all()
+            )
+        finally:
+            db.close()
+
+    @staticmethod
+    def create_memory(user_id: str, content: str) -> Memory:
+        db = SessionLocal()
+        try:
+            # Generate unique short_id
+            short_id = generate_short_id()
+            while db.query(Memory).filter(Memory.short_id == short_id).first():
+                short_id = generate_short_id()
+
+            memory = Memory(user_id=user_id, content=content, short_id=short_id)
+            db.add(memory)
+            db.commit()
+            db.refresh(memory)
+            return memory
+        finally:
+            db.close()
+
+    @staticmethod
+    def get_memory_by_id(memory_id: int, user_id: str) -> Memory | None:
+        db = SessionLocal()
+        try:
+            return (
+                db.query(Memory)
+                .filter(Memory.id == memory_id, Memory.user_id == user_id)
                 .first()
             )
         finally:
             db.close()
 
     @staticmethod
-    def update_note(note_id: int, user_id: str, content: str) -> Note | None:
+    def get_memory_by_short_id(short_id: str, user_id: str) -> Memory | None:
         db = SessionLocal()
         try:
-            note = (
-                db.query(Note)
-                .filter(Note.id == note_id, Note.user_id == user_id)
+            return (
+                db.query(Memory)
+                .filter(Memory.short_id == short_id, Memory.user_id == user_id)
                 .first()
             )
-            if note:
-                note.content = content
-                note.updated_at = utc_now()
+        finally:
+            db.close()
+
+    @staticmethod
+    def update_memory(memory_id: int, user_id: str, content: str) -> Memory | None:
+        db = SessionLocal()
+        try:
+            memory = (
+                db.query(Memory)
+                .filter(Memory.id == memory_id, Memory.user_id == user_id)
+                .first()
+            )
+            if memory:
+                memory.content = content
+                memory.updated_at = utc_now()
                 db.commit()
-                db.refresh(note)
-            return note
+                db.refresh(memory)
+            return memory
         finally:
             db.close()
 
     @staticmethod
-    def delete_note(note_id: int, user_id: str) -> bool:
+    def delete_memory(memory_id: int, user_id: str) -> bool:
         db = SessionLocal()
         try:
-            note = (
-                db.query(Note)
-                .filter(Note.id == note_id, Note.user_id == user_id)
+            memory = (
+                db.query(Memory)
+                .filter(Memory.id == memory_id, Memory.user_id == user_id)
                 .first()
             )
-            if note:
-                db.delete(note)
+            if memory:
+                db.delete(memory)
                 db.commit()
                 return True
             return False

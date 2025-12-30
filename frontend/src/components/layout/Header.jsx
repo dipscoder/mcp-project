@@ -1,5 +1,5 @@
 import { useStytch } from "@stytch/react";
-import { FiFileText } from "react-icons/fi";
+import { FiCpu } from "react-icons/fi";
 
 export default function Header() {
   const stytch = useStytch();
@@ -13,9 +13,9 @@ export default function Header() {
       <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-zinc-900 rounded-lg flex items-center justify-center text-white">
-            <FiFileText size={20} />
+            <FiCpu size={20} />
           </div>
-          <span className="font-semibold text-zinc-900">Personal Notes</span>
+          <span className="font-semibold text-zinc-900">AI Memory Hub</span>
         </div>
         <button
           onClick={handleLogout}
