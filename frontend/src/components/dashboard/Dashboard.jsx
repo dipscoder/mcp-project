@@ -1,9 +1,10 @@
 import { useStytch, useStytchUser } from "@stytch/react";
 import { useEffect, useState } from "react";
-import { FiCpu, FiX } from "react-icons/fi";
+import { FiBookOpen, FiCpu, FiPlus, FiX } from "react-icons/fi";
+import { Link } from "react-router-dom";
 import { BACKEND_URL } from "../../config/constants";
 import { Header } from "../layout";
-import { DeleteConfirmModal, Spinner } from "../ui";
+import { DeleteConfirmModal, SlidePanel, Spinner } from "../ui";
 import MemoryCard from "./MemoryCard";
 import MemoryForm from "./MemoryForm";
 
@@ -17,9 +18,10 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   // Form state
-  const [newMemory, setNewMemory] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editContent, setEditContent] = useState("");
+  const [showPanel, setShowPanel] = useState(false);
+  const [editingMemory, setEditingMemory] = useState(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formContent, setFormContent] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Delete modal state
@@ -29,6 +31,30 @@ export default function Dashboard() {
   const getSessionToken = () => {
     const tokens = stytch.session.getTokens();
     return tokens?.session_token;
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormTitle("");
+    setFormContent("");
+    setEditingMemory(null);
+    setShowPanel(false);
+  };
+
+  // Open add panel
+  const openAddPanel = () => {
+    setFormTitle("");
+    setFormContent("");
+    setEditingMemory(null);
+    setShowPanel(true);
+  };
+
+  // Open edit panel
+  const openEditPanel = (memory) => {
+    setFormTitle(memory.title);
+    setFormContent(memory.content);
+    setEditingMemory(memory);
+    setShowPanel(true);
   };
 
   // Fetch memories
@@ -61,7 +87,7 @@ export default function Dashboard() {
   // Create memory
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!newMemory.trim()) return;
+    if (!formTitle.trim() || !formContent.trim()) return;
 
     setSaving(true);
     try {
@@ -71,12 +97,15 @@ export default function Dashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getSessionToken()}`,
         },
-        body: JSON.stringify({ content: newMemory.trim() }),
+        body: JSON.stringify({
+          title: formTitle.trim(),
+          content: formContent.trim(),
+        }),
       });
       const data = await response.json();
       if (response.ok) {
         setMemories([data.memory, ...memories]);
-        setNewMemory("");
+        resetForm();
         setError("");
       } else {
         setError(data.error || "Failed to create memory");
@@ -89,24 +118,32 @@ export default function Dashboard() {
   };
 
   // Update memory
-  const handleUpdate = async () => {
-    if (!editContent.trim() || !editingId) return;
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!formTitle.trim() || !formContent.trim() || !editingMemory) return;
 
     setSaving(true);
     try {
-      const response = await fetch(`${BACKEND_URL}/api/memories/${editingId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getSessionToken()}`,
-        },
-        body: JSON.stringify({ content: editContent.trim() }),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/memories/${editingMemory.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getSessionToken()}`,
+          },
+          body: JSON.stringify({
+            title: formTitle.trim(),
+            content: formContent.trim(),
+          }),
+        }
+      );
       const data = await response.json();
       if (response.ok) {
-        setMemories(memories.map((m) => (m.id === editingId ? data.memory : m)));
-        setEditingId(null);
-        setEditContent("");
+        setMemories(
+          memories.map((m) => (m.id === editingMemory.id ? data.memory : m))
+        );
+        resetForm();
         setError("");
       } else {
         setError(data.error || "Failed to update memory");
@@ -157,27 +194,37 @@ export default function Dashboard() {
     <div className="min-h-screen bg-zinc-50">
       <Header />
 
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 pb-24">
         {/* Welcome & Purpose */}
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-zinc-900">
-            Welcome, {getDisplayName()}
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Your shared memory layer for AI assistants
-          </p>
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-semibold text-zinc-900">
+              Welcome, {getDisplayName()}
+            </h1>
+            <p className="text-sm text-zinc-500 mt-1">
+              Your shared memory layer for AI assistants
+            </p>
+          </div>
+          <Link
+            to="/guide"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+          >
+            <FiBookOpen size={16} />
+            <span className="hidden sm:inline">Setup Guide</span>
+          </Link>
         </div>
 
         {/* Purpose explanation */}
         <div className="mb-6 p-4 bg-gradient-to-r from-zinc-900 to-zinc-800 rounded-xl text-white">
           <div className="flex items-start gap-3">
-            <FiCpu size={20} className="mt-0.5 flex-shrink-0" />
+            <FiCpu size={20} className="mt-0.5 shrink-0" />
             <div>
               <h2 className="font-medium text-sm">How it works</h2>
               <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                Store your preferences, project context, and personal notes here.
-                Any MCP-compatible AI assistant (Claude, ChatGPT, etc.) can access these memories
-                to provide personalized help. Use the unique ID to reference specific memories in conversations.
+                Store your preferences, project context, and personal notes
+                here. Supports <strong>markdown</strong> formatting. Any
+                MCP-compatible AI assistant can access these memories. Use the
+                unique ID to reference specific memories.
               </p>
             </div>
           </div>
@@ -196,14 +243,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Create memory form */}
-        <MemoryForm
-          value={newMemory}
-          onChange={setNewMemory}
-          onSubmit={handleCreate}
-          saving={saving && !editingId}
-        />
-
         {/* Memories list */}
         <div className="space-y-3">
           {loading ? (
@@ -214,9 +253,11 @@ export default function Dashboard() {
           ) : memories.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-xl border border-zinc-200">
               <FiCpu size={40} className="mx-auto text-zinc-300 mb-4" />
-              <p className="text-zinc-500 text-sm font-medium">No memories yet</p>
+              <p className="text-zinc-500 text-sm font-medium">
+                No memories yet
+              </p>
               <p className="text-zinc-400 text-xs mt-1">
-                Add your first memory for AI assistants to reference
+                Click the + button to add your first memory
               </p>
             </div>
           ) : (
@@ -224,25 +265,40 @@ export default function Dashboard() {
               <MemoryCard
                 key={memory.id}
                 memory={memory}
-                isEditing={editingId === memory.id}
-                editContent={editContent}
-                setEditContent={setEditContent}
-                saving={saving && editingId === memory.id}
-                onEdit={(m) => {
-                  setEditingId(m.id);
-                  setEditContent(m.content);
-                }}
+                onEdit={openEditPanel}
                 onDelete={(m) => setDeleteModal({ open: true, memory: m })}
-                onSave={handleUpdate}
-                onCancel={() => {
-                  setEditingId(null);
-                  setEditContent("");
-                }}
               />
             ))
           )}
         </div>
       </main>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={openAddPanel}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95"
+        title="Add new memory"
+      >
+        <FiPlus size={24} />
+      </button>
+
+      {/* Add/Edit Memory Slide Panel */}
+      <SlidePanel
+        isOpen={showPanel}
+        onClose={resetForm}
+        title={editingMemory ? "Edit Memory" : "Add Memory"}
+      >
+        <MemoryForm
+          title={formTitle}
+          content={formContent}
+          onTitleChange={setFormTitle}
+          onContentChange={setFormContent}
+          onSubmit={editingMemory ? handleUpdate : handleCreate}
+          saving={saving}
+          onCancel={resetForm}
+          isEdit={!!editingMemory}
+        />
+      </SlidePanel>
 
       {/* Delete confirmation modal */}
       <DeleteConfirmModal

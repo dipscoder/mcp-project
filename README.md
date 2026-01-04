@@ -111,20 +111,65 @@ The web UI is available at `http://localhost:5173`
 
 ### 4. Connect Your AI Assistant
 
-#### Claude Code
+See the [Connecting AI Assistants](#connecting-ai-assistants) section below for detailed setup instructions.
 
-Add to your Claude Code MCP settings:
+## Connecting AI Assistants
+
+### Claude Code CLI
+
+The easiest way to add AI Memory Hub to Claude Code:
+
+```bash
+# Add the MCP server (replace with your server URL)
+claude mcp add --transport http ai-memory-hub http://localhost:8000/mcp
+
+# For remote/deployed servers
+claude mcp add --transport http ai-memory-hub https://your-server.com/mcp
+```
+
+After adding, Claude Code will prompt you to authenticate via Stytch when you first use a memory tool.
+
+**Alternative: Manual Configuration**
+
+Edit your Claude Code config file (`~/.claude/settings.json` or via `claude config`):
 
 ```json
 {
   "mcpServers": {
     "ai-memory-hub": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:8000/sse"]
+      "args": ["-y", "mcp-remote", "http://localhost:8000/mcp"]
     }
   }
 }
 ```
+
+### Claude Desktop
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "ai-memory-hub": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:8000/mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop after adding the configuration.
+
+### Other MCP-Compatible Clients
+
+For any MCP-compatible AI assistant, use these connection details:
+
+| Property | Value |
+|----------|-------|
+| Transport | HTTP |
+| Endpoint | `http://localhost:8000/mcp` |
+| Auth | OAuth 2.0 (automatic via Stytch) |
 
 ## MCP Tools Available
 

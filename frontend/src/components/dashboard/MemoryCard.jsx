@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { FiCopy, FiCheck, FiEdit2, FiTrash2 } from "react-icons/fi";
-import { Spinner } from "../ui";
+import { FiCheck, FiCopy, FiEdit2, FiTrash2 } from "react-icons/fi";
+import Markdown from "react-markdown";
 
 function formatDate(dateString) {
   if (!dateString) return "";
@@ -37,17 +37,7 @@ function formatDate(dateString) {
   });
 }
 
-export default function MemoryCard({
-  memory,
-  onEdit,
-  onDelete,
-  isEditing,
-  editContent,
-  setEditContent,
-  onSave,
-  onCancel,
-  saving,
-}) {
+export default function MemoryCard({ memory, onEdit, onDelete }) {
   const [copied, setCopied] = useState(false);
 
   const copyId = async () => {
@@ -68,76 +58,92 @@ export default function MemoryCard({
     }
   };
 
-  if (isEditing) {
-    return (
-      <div className="bg-white rounded-xl border border-zinc-200 p-4">
-        <textarea
-          value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
-          rows={4}
-          className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
-          disabled={saving}
-          autoFocus
-        />
-        <div className="flex justify-end gap-2 mt-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm text-zinc-600 hover:text-zinc-900 cursor-pointer"
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onSave}
-            disabled={!editContent.trim() || saving}
-            className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {saving ? (
-              <>
-                <Spinner size="sm" className="border-white/30 border-t-white" />
-                Saving...
-              </>
-            ) : (
-              "Save"
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const wasEdited =
     memory.updated_at &&
     memory.created_at &&
     new Date(memory.updated_at) > new Date(memory.created_at);
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-200 p-4 group">
-      {/* Short ID badge */}
-      <div className="flex items-center gap-2 mb-3">
+    <div className="bg-white rounded-xl border border-zinc-200 p-4 group hover:border-zinc-300 transition-colors">
+      {/* Header: Title + ID */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h3 className="font-medium text-zinc-900 text-sm leading-snug">
+          {memory.title}
+        </h3>
         <button
           onClick={copyId}
-          className="inline-flex items-center gap-1.5 px-2 py-1 bg-zinc-100 hover:bg-zinc-200 rounded-md text-xs font-mono text-zinc-600 transition-colors cursor-pointer"
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-2 py-1 bg-zinc-100 hover:bg-zinc-200 rounded-md text-xs font-mono text-zinc-500 transition-colors cursor-pointer"
           title="Click to copy ID"
         >
           {copied ? (
             <>
-              <FiCheck size={12} className="text-green-600" />
+              <FiCheck size={11} className="text-green-600" />
               <span className="text-green-600">Copied!</span>
             </>
           ) : (
             <>
-              <FiCopy size={12} />
+              <FiCopy size={11} />
               <span>{memory.short_id}</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Content */}
-      <p className="text-sm text-zinc-700 whitespace-pre-wrap">
-        {memory.content}
-      </p>
+      {/* Content - Rendered as Markdown */}
+      <div className="prose prose-sm prose-zinc max-w-none text-zinc-600">
+        <Markdown
+          components={{
+            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+            strong: ({ children }) => (
+              <strong className="font-semibold text-zinc-900">{children}</strong>
+            ),
+            em: ({ children }) => <em className="italic">{children}</em>,
+            code: ({ children }) => (
+              <code className="px-1.5 py-0.5 bg-zinc-100 rounded text-xs font-mono text-zinc-800">
+                {children}
+              </code>
+            ),
+            pre: ({ children }) => (
+              <pre className="p-3 bg-zinc-100 rounded-lg overflow-x-auto text-xs font-mono my-2">
+                {children}
+              </pre>
+            ),
+            ul: ({ children }) => (
+              <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>
+            ),
+            ol: ({ children }) => (
+              <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>
+            ),
+            li: ({ children }) => <li className="text-sm">{children}</li>,
+            a: ({ href, children }) => (
+              <a
+                href={href}
+                className="text-blue-600 hover:underline cursor-pointer"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {children}
+              </a>
+            ),
+            h1: ({ children }) => (
+              <h1 className="text-lg font-bold text-zinc-900 mt-3 mb-2">{children}</h1>
+            ),
+            h2: ({ children }) => (
+              <h2 className="text-base font-bold text-zinc-900 mt-3 mb-2">{children}</h2>
+            ),
+            h3: ({ children }) => (
+              <h3 className="text-sm font-bold text-zinc-900 mt-2 mb-1">{children}</h3>
+            ),
+            blockquote: ({ children }) => (
+              <blockquote className="border-l-2 border-zinc-300 pl-3 italic text-zinc-600 my-2">
+                {children}
+              </blockquote>
+            ),
+          }}
+        >
+          {memory.content}
+        </Markdown>
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100">

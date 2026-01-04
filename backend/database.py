@@ -24,12 +24,18 @@ def generate_short_id():
     return "".join(secrets.choice(SHORT_ID_CHARS) for _ in range(SHORT_ID_LENGTH))
 
 
+# Constants for validation
+MAX_TITLE_LENGTH = 100
+MAX_CONTENT_LENGTH = 10000
+
+
 class Memory(Base):
     __tablename__ = "memories"
 
     id = Column(Integer, primary_key=True, index=True)
     short_id = Column(String(10), unique=True, index=True, nullable=False)
     user_id = Column(String, nullable=False, index=True)
+    title = Column(String(MAX_TITLE_LENGTH), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
@@ -61,7 +67,7 @@ class MemoryRepository:
             db.close()
 
     @staticmethod
-    def create_memory(user_id: str, content: str) -> Memory:
+    def create_memory(user_id: str, title: str, content: str) -> Memory:
         db = SessionLocal()
         try:
             # Generate unique short_id
@@ -69,7 +75,9 @@ class MemoryRepository:
             while db.query(Memory).filter(Memory.short_id == short_id).first():
                 short_id = generate_short_id()
 
-            memory = Memory(user_id=user_id, content=content, short_id=short_id)
+            memory = Memory(
+                user_id=user_id, title=title, content=content, short_id=short_id
+            )
             db.add(memory)
             db.commit()
             db.refresh(memory)
@@ -102,7 +110,9 @@ class MemoryRepository:
             db.close()
 
     @staticmethod
-    def update_memory(memory_id: int, user_id: str, content: str) -> Memory | None:
+    def update_memory(
+        memory_id: int, user_id: str, title: str, content: str
+    ) -> Memory | None:
         db = SessionLocal()
         try:
             memory = (
@@ -111,6 +121,7 @@ class MemoryRepository:
                 .first()
             )
             if memory:
+                memory.title = title
                 memory.content = content
                 memory.updated_at = utc_now()
                 db.commit()

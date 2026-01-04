@@ -1,6 +1,10 @@
 // Backend API URL
 export const BACKEND_URL = "http://localhost:8000";
 
+// Validation limits
+export const MAX_TITLE_LENGTH = 100;
+export const MAX_CONTENT_LENGTH = 10000;
+
 // Stytch configuration
 export const stytchConfig = {
   products: ["passwords"],

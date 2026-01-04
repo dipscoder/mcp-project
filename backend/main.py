@@ -1,7 +1,7 @@
 import os
 
 import httpx
-from database import MemoryRepository
+from database import MAX_CONTENT_LENGTH, MAX_TITLE_LENGTH, MemoryRepository
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth import BearerAuthProvider
@@ -59,6 +59,7 @@ def serialize_memory(memory):
     return {
         "id": memory.id,
         "short_id": memory.short_id,
+        "title": memory.title,
         "content": memory.content,
         "created_at": f"{memory.created_at.isoformat()}Z" if memory.created_at else None,
         "updated_at": f"{memory.updated_at.isoformat()}Z" if memory.updated_at else None,
@@ -74,7 +75,7 @@ def get_my_memories() -> str:
     that they have saved for AI assistants. This helps you understand the user's
     background, preferences, and ongoing projects.
 
-    Returns a formatted list of all memories with their unique IDs for reference.
+    Returns a formatted list of all memories with their unique IDs and titles.
     """
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
@@ -85,7 +86,7 @@ def get_my_memories() -> str:
 
     result = "User's Stored Memories:\n\n"
     for memory in memories:
-        result += f"[{memory.short_id}] {memory.content}\n\n"
+        result += f"[{memory.short_id}] {memory.title}\n{memory.content}\n\n"
 
     return result
 
@@ -101,7 +102,7 @@ def get_memory_by_id(memory_id: str) -> str:
     Args:
         memory_id: The 6-character unique ID of the memory (e.g., "x7k2m9")
 
-    Returns the memory content if found, or an error message if not found.
+    Returns the memory title and content if found, or an error message if not found.
     """
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
@@ -110,11 +111,11 @@ def get_memory_by_id(memory_id: str) -> str:
     if not memory:
         return f"Memory with ID '{memory_id}' not found. Please check the ID and try again."
 
-    return f"[{memory.short_id}] {memory.content}"
+    return f"[{memory.short_id}] {memory.title}\n{memory.content}"
 
 
 @mcp.tool()
-def add_memory(content: str) -> str:
+def add_memory(title: str, content: str) -> str:
     """
     Store a new memory for the user for future reference by AI assistants.
 
@@ -125,15 +126,16 @@ def add_memory(content: str) -> str:
     - Any information the user wants AI assistants to remember
 
     Args:
-        content: The memory content to store. Be descriptive and specific.
+        title: A short, descriptive title for the memory (max 100 chars).
+        content: The detailed memory content. Supports markdown formatting.
 
     Returns confirmation with the assigned memory ID for future reference.
     """
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
 
-    memory = MemoryRepository.create_memory(user_id=user_id, content=content)
-    return f"Memory saved with ID [{memory.short_id}]: {memory.content}"
+    memory = MemoryRepository.create_memory(user_id=user_id, title=title, content=content)
+    return f"Memory saved with ID [{memory.short_id}]: {memory.title}"
 
 
 @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET", "OPTIONS"])
@@ -174,17 +176,30 @@ async def create_memory(request: StarletteRequest) -> JSONResponse:
 
     try:
         body = await request.json()
+        title = body.get("title", "").strip()
         content = body.get("content", "").strip()
+
+        if not title:
+            return JSONResponse({"error": "Title is required"}, status_code=400)
 
         if not content:
             return JSONResponse({"error": "Content is required"}, status_code=400)
 
-        if len(content) > 10000:
+        if len(title) > MAX_TITLE_LENGTH:
             return JSONResponse(
-                {"error": "Content too long (max 10000 characters)"}, status_code=400
+                {"error": f"Title too long (max {MAX_TITLE_LENGTH} characters)"},
+                status_code=400,
             )
 
-        memory = MemoryRepository.create_memory(user_id=user_id, content=content)
+        if len(content) > MAX_CONTENT_LENGTH:
+            return JSONResponse(
+                {"error": f"Content too long (max {MAX_CONTENT_LENGTH} characters)"},
+                status_code=400,
+            )
+
+        memory = MemoryRepository.create_memory(
+            user_id=user_id, title=title, content=content
+        )
         return JSONResponse({"memory": serialize_memory(memory)}, status_code=201)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -203,18 +218,29 @@ async def update_memory(request: StarletteRequest) -> JSONResponse:
     try:
         memory_id = int(request.path_params.get("memory_id"))
         body = await request.json()
+        title = body.get("title", "").strip()
         content = body.get("content", "").strip()
+
+        if not title:
+            return JSONResponse({"error": "Title is required"}, status_code=400)
 
         if not content:
             return JSONResponse({"error": "Content is required"}, status_code=400)
 
-        if len(content) > 10000:
+        if len(title) > MAX_TITLE_LENGTH:
             return JSONResponse(
-                {"error": "Content too long (max 10000 characters)"}, status_code=400
+                {"error": f"Title too long (max {MAX_TITLE_LENGTH} characters)"},
+                status_code=400,
+            )
+
+        if len(content) > MAX_CONTENT_LENGTH:
+            return JSONResponse(
+                {"error": f"Content too long (max {MAX_CONTENT_LENGTH} characters)"},
+                status_code=400,
             )
 
         memory = MemoryRepository.update_memory(
-            memory_id=memory_id, user_id=user_id, content=content
+            memory_id=memory_id, user_id=user_id, title=title, content=content
         )
         if not memory:
             return JSONResponse({"error": "Memory not found"}, status_code=404)

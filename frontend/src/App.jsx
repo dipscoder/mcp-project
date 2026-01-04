@@ -4,6 +4,7 @@ import {
   AuthenticatePage,
   Dashboard,
   ForgotPasswordPage,
+  GuidePage,
   LoginPage,
   OAuthPage,
   SignupPage,
@@ -44,6 +45,7 @@ function App() {
         element={user ? <Navigate to="/" replace /> : <SignupPage />}
       />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/guide" element={<GuidePage />} />
       <Route path="/" element={<RootPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
