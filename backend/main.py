@@ -1,7 +1,7 @@
 import os
 
 import httpx
-from database import MAX_CONTENT_LENGTH, MAX_TITLE_LENGTH, MemoryRepository
+from database import MAX_CONTENT_LENGTH, MAX_TITLE_LENGTH, MemoryRepository, init_db
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth import BearerAuthProvider
@@ -274,6 +274,9 @@ async def delete_memory(request: StarletteRequest) -> JSONResponse:
 
 
 if __name__ == "__main__":
+    # Initialize database tables
+    init_db()
+
     mcp.run(
         transport="http",
         host="127.0.0.1",

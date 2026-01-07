@@ -1,12 +1,23 @@
+import os
 import secrets
 import string
 from datetime import datetime, timezone
 from typing import List
 
+from dotenv import load_dotenv
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-engine = create_engine("sqlite:///database.db")
+# Load environment variables
+load_dotenv()
+
+# Get database URL from environment variable
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -34,14 +45,18 @@ class Memory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     short_id = Column(String(10), unique=True, index=True, nullable=False)
-    user_id = Column(String, nullable=False, index=True)
+    user_id = Column(String(255), nullable=False, index=True)
     title = Column(String(MAX_TITLE_LENGTH), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
 
 
-Base.metadata.create_all(bind=engine)
+def init_db():
+    """Initialize database tables."""
+    Base.metadata.create_all(bind=engine)
 
 
 def get_db():
