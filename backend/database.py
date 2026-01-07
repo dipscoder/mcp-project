@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from typing import List
 
 from dotenv import load_dotenv
-from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 # Load environment variables
 load_dotenv()
@@ -40,18 +40,32 @@ MAX_TITLE_LENGTH = 100
 MAX_CONTENT_LENGTH = 10000
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stytch_user_id = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), nullable=True)
+    name = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    # Relationship to memories
+    memories = relationship("Memory", back_populates="user", cascade="all, delete-orphan")
+
+
 class Memory(Base):
     __tablename__ = "memories"
 
     id = Column(Integer, primary_key=True, index=True)
     short_id = Column(String(10), unique=True, index=True, nullable=False)
-    user_id = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(MAX_TITLE_LENGTH), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    # Relationship to user
+    user = relationship("User", back_populates="memories")
 
 
 def init_db():
@@ -67,14 +81,50 @@ def get_db():
         db.close()
 
 
-class MemoryRepository:
+class UserRepository:
     @staticmethod
-    def get_memories_by_user(user_id: str) -> List[Memory]:
+    def get_or_create_user(stytch_user_id: str, email: str = None, name: str = None) -> User:
+        """Get existing user or create a new one."""
         db = SessionLocal()
         try:
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                user = User(stytch_user_id=stytch_user_id, email=email, name=name)
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            elif email and user.email != email:
+                # Update email if changed
+                user.email = email
+                if name:
+                    user.name = name
+                db.commit()
+                db.refresh(user)
+            return user
+        finally:
+            db.close()
+
+    @staticmethod
+    def get_user_by_stytch_id(stytch_user_id: str) -> User | None:
+        """Get user by Stytch user ID."""
+        db = SessionLocal()
+        try:
+            return db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+        finally:
+            db.close()
+
+
+class MemoryRepository:
+    @staticmethod
+    def get_memories_by_user(stytch_user_id: str) -> List[Memory]:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                return []
             return (
                 db.query(Memory)
-                .filter(Memory.user_id == user_id)
+                .filter(Memory.user_id == user.id)
                 .order_by(Memory.created_at.desc())
                 .all()
             )
@@ -82,16 +132,24 @@ class MemoryRepository:
             db.close()
 
     @staticmethod
-    def create_memory(user_id: str, title: str, content: str) -> Memory:
+    def create_memory(stytch_user_id: str, title: str, content: str) -> Memory:
         db = SessionLocal()
         try:
+            # Get or create user
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                user = User(stytch_user_id=stytch_user_id)
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+
             # Generate unique short_id
             short_id = generate_short_id()
             while db.query(Memory).filter(Memory.short_id == short_id).first():
                 short_id = generate_short_id()
 
             memory = Memory(
-                user_id=user_id, title=title, content=content, short_id=short_id
+                user_id=user.id, title=title, content=content, short_id=short_id
             )
             db.add(memory)
             db.commit()
@@ -101,24 +159,30 @@ class MemoryRepository:
             db.close()
 
     @staticmethod
-    def get_memory_by_id(memory_id: int, user_id: str) -> Memory | None:
+    def get_memory_by_id(memory_id: int, stytch_user_id: str) -> Memory | None:
         db = SessionLocal()
         try:
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                return None
             return (
                 db.query(Memory)
-                .filter(Memory.id == memory_id, Memory.user_id == user_id)
+                .filter(Memory.id == memory_id, Memory.user_id == user.id)
                 .first()
             )
         finally:
             db.close()
 
     @staticmethod
-    def get_memory_by_short_id(short_id: str, user_id: str) -> Memory | None:
+    def get_memory_by_short_id(short_id: str, stytch_user_id: str) -> Memory | None:
         db = SessionLocal()
         try:
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                return None
             return (
                 db.query(Memory)
-                .filter(Memory.short_id == short_id, Memory.user_id == user_id)
+                .filter(Memory.short_id == short_id, Memory.user_id == user.id)
                 .first()
             )
         finally:
@@ -126,13 +190,16 @@ class MemoryRepository:
 
     @staticmethod
     def update_memory(
-        memory_id: int, user_id: str, title: str, content: str
+        memory_id: int, stytch_user_id: str, title: str, content: str
     ) -> Memory | None:
         db = SessionLocal()
         try:
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                return None
             memory = (
                 db.query(Memory)
-                .filter(Memory.id == memory_id, Memory.user_id == user_id)
+                .filter(Memory.id == memory_id, Memory.user_id == user.id)
                 .first()
             )
             if memory:
@@ -146,12 +213,15 @@ class MemoryRepository:
             db.close()
 
     @staticmethod
-    def delete_memory(memory_id: int, user_id: str) -> bool:
+    def delete_memory(memory_id: int, stytch_user_id: str) -> bool:
         db = SessionLocal()
         try:
+            user = db.query(User).filter(User.stytch_user_id == stytch_user_id).first()
+            if not user:
+                return False
             memory = (
                 db.query(Memory)
-                .filter(Memory.id == memory_id, Memory.user_id == user_id)
+                .filter(Memory.id == memory_id, Memory.user_id == user.id)
                 .first()
             )
             if memory:

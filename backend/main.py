@@ -54,6 +54,18 @@ auth = BearerAuthProvider(
 mcp = FastMCP(name="AI Memory Hub", auth=auth)
 
 
+def format_datetime(dt):
+    """Format datetime to ISO string with Z suffix for UTC."""
+    if not dt:
+        return None
+    # If timezone-aware, convert to UTC and format
+    if dt.tzinfo is not None:
+        # Replace timezone with Z (UTC indicator)
+        return dt.strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+    # If naive, assume UTC
+    return dt.strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+
+
 def serialize_memory(memory):
     """Convert memory to JSON-serializable dict with timestamps."""
     return {
@@ -61,8 +73,8 @@ def serialize_memory(memory):
         "short_id": memory.short_id,
         "title": memory.title,
         "content": memory.content,
-        "created_at": f"{memory.created_at.isoformat()}Z" if memory.created_at else None,
-        "updated_at": f"{memory.updated_at.isoformat()}Z" if memory.updated_at else None,
+        "created_at": format_datetime(memory.created_at),
+        "updated_at": format_datetime(memory.updated_at),
     }
 
 
@@ -80,7 +92,7 @@ def get_my_memories() -> str:
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
 
-    memories = MemoryRepository.get_memories_by_user(user_id=user_id)
+    memories = MemoryRepository.get_memories_by_user(stytch_user_id=user_id)
     if not memories:
         return "No memories stored yet. The user hasn't saved any context or preferences."
 
@@ -107,7 +119,7 @@ def get_memory_by_id(memory_id: str) -> str:
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
 
-    memory = MemoryRepository.get_memory_by_short_id(short_id=memory_id, user_id=user_id)
+    memory = MemoryRepository.get_memory_by_short_id(short_id=memory_id, stytch_user_id=user_id)
     if not memory:
         return f"Memory with ID '{memory_id}' not found. Please check the ID and try again."
 
@@ -134,7 +146,7 @@ def add_memory(title: str, content: str) -> str:
     access_token: AccessToken = get_access_token()
     user_id = jwt.get_unverified_claims(access_token.token)["sub"]
 
-    memory = MemoryRepository.create_memory(user_id=user_id, title=title, content=content)
+    memory = MemoryRepository.create_memory(stytch_user_id=user_id, title=title, content=content)
     return f"Memory saved with ID [{memory.short_id}]: {memory.title}"
 
 
@@ -163,7 +175,7 @@ async def list_memories(request: StarletteRequest) -> JSONResponse:
     if not user_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    memories = MemoryRepository.get_memories_by_user(user_id=user_id)
+    memories = MemoryRepository.get_memories_by_user(stytch_user_id=user_id)
     return JSONResponse({"memories": [serialize_memory(m) for m in memories]})
 
 
@@ -198,7 +210,7 @@ async def create_memory(request: StarletteRequest) -> JSONResponse:
             )
 
         memory = MemoryRepository.create_memory(
-            user_id=user_id, title=title, content=content
+            stytch_user_id=user_id, title=title, content=content
         )
         return JSONResponse({"memory": serialize_memory(memory)}, status_code=201)
     except Exception as e:
@@ -240,7 +252,7 @@ async def update_memory(request: StarletteRequest) -> JSONResponse:
             )
 
         memory = MemoryRepository.update_memory(
-            memory_id=memory_id, user_id=user_id, title=title, content=content
+            memory_id=memory_id, stytch_user_id=user_id, title=title, content=content
         )
         if not memory:
             return JSONResponse({"error": "Memory not found"}, status_code=404)
@@ -261,7 +273,7 @@ async def delete_memory(request: StarletteRequest) -> JSONResponse:
 
     try:
         memory_id = int(request.path_params.get("memory_id"))
-        deleted = MemoryRepository.delete_memory(memory_id=memory_id, user_id=user_id)
+        deleted = MemoryRepository.delete_memory(memory_id=memory_id, stytch_user_id=user_id)
 
         if not deleted:
             return JSONResponse({"error": "Memory not found"}, status_code=404)
