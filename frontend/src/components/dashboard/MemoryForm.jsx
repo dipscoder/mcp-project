@@ -1,7 +1,11 @@
 import { useRef } from "react";
-import { FiPlus, FiSave } from "react-icons/fi";
+import { Plus, Save, Loader2 } from "lucide-react";
 import { MAX_CONTENT_LENGTH, MAX_TITLE_LENGTH } from "../../config/constants";
-import { MarkdownToolbar, Spinner } from "../ui";
+import { MarkdownToolbar } from "../ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function MemoryForm({
   title,
@@ -20,25 +24,28 @@ export default function MemoryForm({
   const contentLength = content?.length || 0;
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col h-full">
+    <form onSubmit={onSubmit} className="flex flex-col h-full gap-6">
       {/* Title input */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-          Title
-        </label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="title">Title</Label>
+        <Input
+          id="title"
           type="text"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder="E.g., My coding preferences"
           maxLength={MAX_TITLE_LENGTH}
-          className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent placeholder:text-zinc-400"
           disabled={saving}
           autoFocus
+          className="bg-background"
         />
-        <div className="flex justify-end mt-1">
+        <div className="flex justify-end">
           <span
-            className={`text-xs ${titleLength > MAX_TITLE_LENGTH * 0.9 ? "text-amber-600" : "text-zinc-400"}`}
+            className={`text-xs ${
+              titleLength > MAX_TITLE_LENGTH * 0.9
+                ? "text-amber-600"
+                : "text-muted-foreground"
+            }`}
           >
             {titleLength}/{MAX_TITLE_LENGTH}
           </span>
@@ -46,18 +53,17 @@ export default function MemoryForm({
       </div>
 
       {/* Content textarea with markdown toolbar */}
-      <div className="flex-1 flex flex-col mb-4">
-        <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-          Content
-        </label>
-        <div className="flex-1 flex flex-col border border-zinc-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-zinc-900 focus-within:border-transparent">
+      <div className="flex-1 flex flex-col space-y-2 min-h-0">
+        <Label htmlFor="content">Content</Label>
+        <div className="flex-1 flex flex-col border rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background">
           <MarkdownToolbar
             textareaRef={textareaRef}
             value={content}
             onChange={onContentChange}
           />
-          <textarea
+          <Textarea
             ref={textareaRef}
+            id="content"
             value={content}
             onChange={(e) => onContentChange(e.target.value)}
             placeholder="Write your memory here...
@@ -69,53 +75,58 @@ Examples:
 
 Use the toolbar above to format your text."
             maxLength={MAX_CONTENT_LENGTH}
-            className="flex-1 min-h-[200px] w-full px-3 py-2.5 text-sm resize-none focus:outline-none placeholder:text-zinc-400 font-mono"
+            className="flex-1 min-h-[200px] w-full resize-none border-0 rounded-none focus-visible:ring-0 px-4 py-3 font-mono text-sm leading-relaxed"
             disabled={saving}
           />
         </div>
-        <div className="flex justify-end mt-1">
+        <div className="flex justify-end">
           <span
-            className={`text-xs ${contentLength > MAX_CONTENT_LENGTH * 0.9 ? "text-amber-600" : "text-zinc-400"}`}
+            className={`text-xs ${
+              contentLength > MAX_CONTENT_LENGTH * 0.9
+                ? "text-amber-600"
+                : "text-muted-foreground"
+            }`}
           >
-            {contentLength.toLocaleString()}/{MAX_CONTENT_LENGTH.toLocaleString()}
+            {contentLength.toLocaleString()}/
+            {MAX_CONTENT_LENGTH.toLocaleString()}
           </span>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 pt-4 border-t border-zinc-200">
+      <div className="flex justify-end gap-3 pt-4 border-t mt-auto">
         {onCancel && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={onCancel}
             disabled={saving}
-            className="px-4 py-2.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
           >
             Cancel
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="submit"
           disabled={!isValid || saving}
-          className="px-5 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+          className="min-w-[120px]"
         >
           {saving ? (
             <>
-              <Spinner size="sm" className="border-white/30 border-t-white" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Saving...
             </>
           ) : isEdit ? (
             <>
-              <FiSave size={16} />
+              <Save className="mr-2 h-4 w-4" />
               Save Changes
             </>
           ) : (
             <>
-              <FiPlus size={16} />
+              <Plus className="mr-2 h-4 w-4" />
               Add Memory
             </>
           )}
-        </button>
+        </Button>
       </div>
     </form>
   );

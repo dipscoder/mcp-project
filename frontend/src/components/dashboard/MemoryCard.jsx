@@ -1,6 +1,16 @@
 import { useState } from "react";
-import { FiCheck, FiCopy, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { Check, Copy, Edit2, Trash2 } from "lucide-react";
 import Markdown from "react-markdown";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function formatDate(dateString) {
   if (!dateString) return "";
@@ -46,13 +56,7 @@ export default function MemoryCard({ memory, onEdit, onDelete }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = memory.short_id;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
+      // Fallback
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -64,90 +68,58 @@ export default function MemoryCard({ memory, onEdit, onDelete }) {
     new Date(memory.updated_at) > new Date(memory.created_at);
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-200 p-4 group hover:border-zinc-300 transition-colors">
-      {/* Header: Title + ID */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="font-medium text-zinc-900 text-sm leading-snug">
+    <Card className="group hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4">
+        <CardTitle className="text-sm font-medium leading-snug break-all pr-4">
           {memory.title}
-        </h3>
-        <button
+        </CardTitle>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={copyId}
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-2 py-1 bg-zinc-100 hover:bg-zinc-200 rounded-md text-xs font-mono text-zinc-500 transition-colors cursor-pointer"
+          className="h-6 px-2 text-xs font-mono text-muted-foreground shrink-0"
           title="Click to copy ID"
         >
           {copied ? (
             <>
-              <FiCheck size={11} className="text-green-600" />
+              <Check className="h-3 w-3 mr-1 text-green-600" />
               <span className="text-green-600">Copied!</span>
             </>
           ) : (
             <>
-              <FiCopy size={11} />
+              <Copy className="h-3 w-3 mr-1" />
               <span>{memory.short_id}</span>
             </>
           )}
-        </button>
-      </div>
+        </Button>
+      </CardHeader>
 
-      {/* Content - Rendered as Markdown */}
-      <div className="prose prose-sm prose-zinc max-w-none text-zinc-600">
-        <Markdown
-          components={{
-            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-            strong: ({ children }) => (
-              <strong className="font-semibold text-zinc-900">{children}</strong>
-            ),
-            em: ({ children }) => <em className="italic">{children}</em>,
-            code: ({ children }) => (
-              <code className="px-1.5 py-0.5 bg-zinc-100 rounded text-xs font-mono text-zinc-800">
-                {children}
-              </code>
-            ),
-            pre: ({ children }) => (
-              <pre className="p-3 bg-zinc-100 rounded-lg overflow-x-auto text-xs font-mono my-2">
-                {children}
-              </pre>
-            ),
-            ul: ({ children }) => (
-              <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>
-            ),
-            ol: ({ children }) => (
-              <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>
-            ),
-            li: ({ children }) => <li className="text-sm">{children}</li>,
-            a: ({ href, children }) => (
-              <a
-                href={href}
-                className="text-blue-600 hover:underline cursor-pointer"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {children}
-              </a>
-            ),
-            h1: ({ children }) => (
-              <h1 className="text-lg font-bold text-zinc-900 mt-3 mb-2">{children}</h1>
-            ),
-            h2: ({ children }) => (
-              <h2 className="text-base font-bold text-zinc-900 mt-3 mb-2">{children}</h2>
-            ),
-            h3: ({ children }) => (
-              <h3 className="text-sm font-bold text-zinc-900 mt-2 mb-1">{children}</h3>
-            ),
-            blockquote: ({ children }) => (
-              <blockquote className="border-l-2 border-zinc-300 pl-3 italic text-zinc-600 my-2">
-                {children}
-              </blockquote>
-            ),
-          }}
-        >
-          {memory.content}
-        </Markdown>
-      </div>
+      <CardContent className="p-4 pt-0">
+        <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
+          <Markdown
+            components={{
+              p: ({ children }) => (
+                <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+              ),
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  className="text-primary underline underline-offset-4 hover:text-primary/80 cursor-pointer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {memory.content}
+          </Markdown>
+        </div>
+      </CardContent>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100">
-        <div className="text-xs text-zinc-400">
+      <CardFooter className="flex items-center justify-between p-4 pt-0 border-t bg-muted/20 mt-4 rounded-b-xl border-t-zinc-100 dark:border-t-zinc-800">
+        <div className="text-xs text-muted-foreground mt-3">
           {wasEdited ? (
             <span>Edited {formatDate(memory.updated_at)}</span>
           ) : (
@@ -155,23 +127,27 @@ export default function MemoryCard({ memory, onEdit, onDelete }) {
           )}
         </div>
 
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-3">
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onEdit(memory)}
-            className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 rounded-lg transition-colors cursor-pointer"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
             title="Edit"
           >
-            <FiEdit2 size={16} />
-          </button>
-          <button
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onDelete(memory)}
-            className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
             title="Delete"
           >
-            <FiTrash2 size={16} />
-          </button>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }

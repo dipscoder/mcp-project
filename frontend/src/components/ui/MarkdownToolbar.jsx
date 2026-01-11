@@ -1,11 +1,35 @@
-import { FiBold, FiCode, FiItalic, FiLink, FiList } from "react-icons/fi";
+import { Bold, Code, Italic, Link, List } from "lucide-react";
 
 const tools = [
-  { icon: FiBold, label: "Bold", prefix: "**", suffix: "**", placeholder: "bold text" },
-  { icon: FiItalic, label: "Italic", prefix: "*", suffix: "*", placeholder: "italic text" },
-  { icon: FiCode, label: "Code", prefix: "`", suffix: "`", placeholder: "code" },
-  { icon: FiList, label: "List", prefix: "- ", suffix: "", placeholder: "list item" },
-  { icon: FiLink, label: "Link", prefix: "[", suffix: "](url)", placeholder: "link text" },
+  {
+    icon: Bold,
+    label: "Bold",
+    prefix: "**",
+    suffix: "**",
+    placeholder: "bold text",
+  },
+  {
+    icon: Italic,
+    label: "Italic",
+    prefix: "*",
+    suffix: "*",
+    placeholder: "italic text",
+  },
+  { icon: Code, label: "Code", prefix: "`", suffix: "`", placeholder: "code" },
+  {
+    icon: List,
+    label: "List",
+    prefix: "- ",
+    suffix: "",
+    placeholder: "list item",
+  },
+  {
+    icon: Link,
+    label: "Link",
+    prefix: "[",
+    suffix: "](url)",
+    placeholder: "link text",
+  },
 ];
 
 export default function MarkdownToolbar({ textareaRef, value, onChange }) {
@@ -33,25 +57,29 @@ export default function MarkdownToolbar({ textareaRef, value, onChange }) {
       textarea.focus();
       textarea.setSelectionRange(
         selectedText ? start + tool.prefix.length : newCursorPos,
-        selectedText ? start + tool.prefix.length + selectedText.length : newCursorPos
+        selectedText
+          ? start + tool.prefix.length + selectedText.length
+          : newCursorPos
       );
     }, 0);
   };
 
   return (
-    <div className="flex items-center gap-1 p-2 bg-zinc-50 border-b border-zinc-200 rounded-t-lg">
+    <div className="flex items-center gap-1 p-2 bg-muted/50 border-b border-input rounded-t-md">
       {tools.map((tool) => (
         <button
           key={tool.label}
           type="button"
           onClick={() => insertFormat(tool)}
-          className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 rounded transition-colors cursor-pointer"
+          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer"
           title={tool.label}
         >
-          <tool.icon size={16} />
+          <tool.icon className="h-4 w-4" />
         </button>
       ))}
-      <span className="ml-auto text-xs text-zinc-400">Markdown supported</span>
+      <span className="ml-auto text-xs text-muted-foreground mr-2">
+        Markdown supported
+      </span>
     </div>
   );
 }

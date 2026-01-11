@@ -1,15 +1,33 @@
 import { useStytch, useStytchUser } from "@stytch/react";
 import { useEffect, useState } from "react";
-import { FiBookOpen, FiCpu, FiPlus, FiX } from "react-icons/fi";
+import { BookOpen, Cpu, Plus, X, Loader2, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BACKEND_URL } from "../../config/constants";
 import { Header } from "../layout";
-import { DeleteConfirmModal, SlidePanel, Spinner } from "../ui";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
+
 import MemoryCard from "./MemoryCard";
 import MemoryForm from "./MemoryForm";
 
 export default function Dashboard() {
-  const { user } = useStytchUser();
+  useStytchUser();
   const stytch = useStytch();
 
   // Memories state
@@ -18,6 +36,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   // Form state
+  // Using sheet instead of SlidePanel
   const [showPanel, setShowPanel] = useState(false);
   const [editingMemory, setEditingMemory] = useState(null);
   const [formTitle, setFormTitle] = useState("");
@@ -28,6 +47,7 @@ export default function Dashboard() {
   const [deleteModal, setDeleteModal] = useState({ open: false, memory: null });
   const [deleting, setDeleting] = useState(false);
 
+  // Helper to get session
   const getSessionToken = () => {
     const tokens = stytch.session.getTokens();
     return tokens?.session_token;
@@ -58,31 +78,32 @@ export default function Dashboard() {
   };
 
   // Fetch memories
-  const fetchMemories = async () => {
-    const token = getSessionToken();
-    if (!token) return;
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/memories`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setMemories(data.memories || []);
-        setError("");
-      } else {
-        setError(data.error || "Failed to fetch memories");
-      }
-    } catch {
-      setError("Failed to connect to server");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchMemories = async () => {
+      const token = getSessionToken();
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/memories`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setMemories(data.memories || []);
+          setError("");
+        } else {
+          setError(data.error || "Failed to fetch memories");
+        }
+      } catch {
+        setError("Failed to connect to server");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchMemories();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Create memory
   const handleCreate = async (e) => {
@@ -183,132 +204,166 @@ export default function Dashboard() {
     }
   };
 
-  const getDisplayName = () => {
-    if (user?.name?.first_name) {
-      return `${user.name.first_name}${user.name.last_name ? ` ${user.name.last_name}` : ""}`;
-    }
-    return user?.emails?.[0]?.email?.split("@")[0] || "User";
-  };
-
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       <Header />
 
-      <main className="max-w-3xl mx-auto px-4 py-6 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-8 pb-32">
         {/* Welcome & Purpose */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900">
-              Welcome, {getDisplayName()}
+            <h1 className="text-2xl font-bold tracking-tight">
+              My Memory Notes
             </h1>
-            <p className="text-sm text-zinc-500 mt-1">
+            <p className="text-muted-foreground mt-1">
               Your shared memory layer for AI assistants
             </p>
           </div>
-          <Link
-            to="/guide"
-            className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
-          >
-            <FiBookOpen size={16} />
-            <span className="hidden sm:inline">Setup Guide</span>
-          </Link>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/guide" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Setup Guide</span>
+            </Link>
+          </Button>
         </div>
 
         {/* Purpose explanation */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-zinc-900 to-zinc-800 rounded-xl text-white">
-          <div className="flex items-start gap-3">
-            <FiCpu size={20} className="mt-0.5 shrink-0" />
+        <Card className="mb-8 border-none bg-gradient-to-r from-zinc-900 to-zinc-800 text-white dark:from-zinc-800 dark:to-zinc-900">
+          <CardContent className="p-4 sm:p-6 flex items-start gap-4">
+            <div className="p-2 bg-white/10 rounded-lg shrink-0">
+              <Cpu className="h-5 w-5" />
+            </div>
             <div>
-              <h2 className="font-medium text-sm">How it works</h2>
-              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+              <h2 className="font-semibold mb-1">How it works</h2>
+              <p className="text-sm text-zinc-300 leading-relaxed">
                 Store your preferences, project context, and personal notes
-                here. Supports <strong>markdown</strong> formatting. Any
-                MCP-compatible AI assistant can access these memories. Use the
-                unique ID to reference specific memories.
+                here. Any MCP-compatible LLM can access these memories using the
+                unique ID. Markdown formatting is supported.
               </p>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Error message */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center justify-between">
-            <span>{error}</span>
-            <button
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>{error}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/20"
               onClick={() => setError("")}
-              className="text-red-400 hover:text-red-600 cursor-pointer"
             >
-              <FiX size={16} />
-            </button>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         )}
 
         {/* Memories list */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
-              <Spinner size="lg" className="mb-3" />
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p className="text-sm">Loading memories...</p>
             </div>
           ) : memories.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl border border-zinc-200">
-              <FiCpu size={40} className="mx-auto text-zinc-300 mb-4" />
-              <p className="text-zinc-500 text-sm font-medium">
+            <div className="text-center py-20 bg-muted/30 rounded-xl border border-dashed hover:bg-muted/50 transition-colors">
+              <Cpu className="mx-auto text-muted-foreground/50 h-10 w-10 mb-4" />
+              <p className="text-muted-foreground font-medium mb-1">
                 No memories yet
               </p>
-              <p className="text-zinc-400 text-xs mt-1">
-                Click the + button to add your first memory
+              <p className="text-xs text-muted-foreground/70">
+                Create your first memory to get started
               </p>
             </div>
           ) : (
-            memories.map((memory) => (
-              <MemoryCard
-                key={memory.id}
-                memory={memory}
-                onEdit={openEditPanel}
-                onDelete={(m) => setDeleteModal({ open: true, memory: m })}
-              />
-            ))
+            <div className="grid gap-4 sm:grid-cols-1">
+              {memories.map((memory) => (
+                <MemoryCard
+                  key={memory.id}
+                  memory={memory}
+                  onEdit={openEditPanel}
+                  onDelete={(m) => setDeleteModal({ open: true, memory: m })}
+                />
+              ))}
+            </div>
           )}
         </div>
       </main>
 
       {/* Floating Action Button */}
-      <button
+      <Button
+        size="icon"
+        className="fixed bottom-8 right-8 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 z-40"
         onClick={openAddPanel}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95"
-        title="Add new memory"
       >
-        <FiPlus size={24} />
-      </button>
+        <Plus className="h-6 w-6" />
+        <span className="sr-only">Add new memory</span>
+      </Button>
 
-      {/* Add/Edit Memory Slide Panel */}
-      <SlidePanel
-        isOpen={showPanel}
-        onClose={resetForm}
-        title={editingMemory ? "Edit Memory" : "Add Memory"}
-      >
-        <MemoryForm
-          title={formTitle}
-          content={formContent}
-          onTitleChange={setFormTitle}
-          onContentChange={setFormContent}
-          onSubmit={editingMemory ? handleUpdate : handleCreate}
-          saving={saving}
-          onCancel={resetForm}
-          isEdit={!!editingMemory}
-        />
-      </SlidePanel>
+      {/* Add/Edit Memory Sheet */}
+      <Sheet open={showPanel} onOpenChange={setShowPanel}>
+        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0">
+          <SheetHeader className="px-6 py-4 border-b">
+            <SheetTitle>
+              {editingMemory ? "Edit Memory" : "Add Memory"}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-hidden p-6">
+            <MemoryForm
+              title={formTitle}
+              content={formContent}
+              onTitleChange={setFormTitle}
+              onContentChange={setFormContent}
+              onSubmit={editingMemory ? handleUpdate : handleCreate}
+              saving={saving}
+              onCancel={resetForm}
+              isEdit={!!editingMemory}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Delete confirmation modal */}
-      <DeleteConfirmModal
-        isOpen={deleteModal.open}
-        onClose={() => setDeleteModal({ open: false, memory: null })}
-        onConfirm={handleDelete}
-        loading={deleting}
-        title="Delete Memory"
-        message="Are you sure you want to delete this memory? AI assistants will no longer be able to access it."
-      />
+      <AlertDialog
+        open={deleteModal.open}
+        onOpenChange={(open) =>
+          !open && setDeleteModal({ open: false, memory: null })
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Memory?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this memory? AI assistants will no
+              longer be able to access it. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

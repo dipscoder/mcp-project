@@ -1,4 +1,5 @@
 import { useStytchUser } from "@stytch/react";
+import { ThemeProvider } from "./components/theme-provider";
 import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import {
   AuthenticatePage,
@@ -34,21 +35,23 @@ function App() {
   const { user } = useStytchUser();
 
   return (
-    <Routes>
-      <Route path="/authenticate" element={<AuthenticatePage />} />
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/" replace /> : <LoginPage />}
-      />
-      <Route
-        path="/signup"
-        element={user ? <Navigate to="/" replace /> : <SignupPage />}
-      />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/guide" element={<GuidePage />} />
-      <Route path="/" element={<RootPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <Routes>
+        <Route path="/authenticate" element={<AuthenticatePage />} />
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" replace /> : <LoginPage />}
+        />
+        <Route
+          path="/signup"
+          element={user ? <Navigate to="/" replace /> : <SignupPage />}
+        />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/guide" element={<GuidePage />} />
+        <Route path="/" element={<RootPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ThemeProvider>
   );
 }
 
